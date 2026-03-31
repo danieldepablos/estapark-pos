@@ -2,46 +2,70 @@
 const API_BASE_URL = "https://esta7.com/ticket";
 const AUTH_HEADER = "Basic cHJ1ZWJhOnBydWViYQ==";
 
-// verifyTicket: direct fetch to production API. Minimal headers to avoid unnecessary preflight.
+function formatDateForUI(dateValue) {
+  if (!dateValue) return "-";
+  let parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) {
+    parsed = new Date(String(dateValue).replace(" ", "T"));
+    if (Number.isNaN(parsed.getTime())) return String(dateValue);
+  }
+  const pad = (n) => String(n).padStart(2, "0");
+  const day = pad(parsed.getDate());
+  const month = pad(parsed.getMonth() + 1);
+  const year = parsed.getFullYear();
+  let hours = parsed.getHours();
+  const minutes = pad(parsed.getMinutes());
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12; if (hours === 0) hours = 12;
+  const hoursStr = pad(hours);
+  return `${day}/${month}/${year} ${hoursStr}:${minutes} ${ampm}`;
+}
+
+async function safeFetchJson(url) {
+  const myHeaders = new Headers();
+  myHeaders.append("Authorization", AUTH_HEADER);
+
+  const requestOptions = {
+    method: "GET",
+    headers: myHeaders,
+    redirect: "follow"
+  };
+
+  const response = await fetch(url, requestOptions);
+  return response;
+}
+
 export async function verifyTicket(code) {
   const url = `${API_BASE_URL}/verify/${encodeURIComponent(code)}`;
   try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: AUTH_HEADER
-      }
-    });
-
+    const response = await safeFetchJson(url);
     if (response.ok) {
-      try {
-        return await response.json();
-      } catch (parseErr) {
-        console.error("Error parsing JSON from API:", parseErr);
-        return { status: "invalid", error: "Respuesta invalida del servidor" };
-      }
+      const payload = await response.json();
+      if (payload && payload.enter_date) payload.enter_date = formatDateForUI(payload.enter_date);
+      return payload;
     }
 
-    // Non-OK HTTP response: try to parse JSON error body and return it
     try {
       const payload = await response.json();
+      if (payload && payload.enter_date) payload.enter_date = formatDateForUI(payload.enter_date);
       return payload;
     } catch {
       return { status: "invalid", error: `HTTP ${response.status}` };
     }
   } catch (err) {
-    // Network or CORS error: warn and return fallback mock so UI doesn't break
     console.warn("Error en API Real, usando datos de respaldo.", err);
-    return { status: "valid", amount: "420.00", enter_date: "2026-03-31 10:50:50", isMock: true };
+    return { status: "valid", amount: "420.00", enter_date: formatDateForUI("2026-03-31T10:50:00"), isMock: true };
   }
 }
 
-// Optional helper endpoints kept simple (reuse verify pattern)
 export async function notifyPayment(code) {
   const url = `${API_BASE_URL}/notify/${encodeURIComponent(code)}`;
   try {
-    const response = await fetch(url, { method: "GET", headers: { Authorization: AUTH_HEADER } });
-    if (response.ok) return await response.json();
+    const response = await safeFetchJson(url);
+    if (response.ok) {
+      const payload = await response.json();
+      return payload;
+    }
     try { return await response.json(); } catch { return { status: "invalid", error: `HTTP ${response.status}` }; }
   } catch (err) {
     console.warn("Error en API Real (notify), usando datos de respaldo.", err);
@@ -52,8 +76,11 @@ export async function notifyPayment(code) {
 export async function waiveTicket(code) {
   const url = `${API_BASE_URL}/waive/${encodeURIComponent(code)}`;
   try {
-    const response = await fetch(url, { method: "GET", headers: { Authorization: AUTH_HEADER } });
-    if (response.ok) return await response.json();
+    const response = await safeFetchJson(url);
+    if (response.ok) {
+      const payload = await response.json();
+      return payload;
+    }
     try { return await response.json(); } catch { return { status: "invalid", error: `HTTP ${response.status}` }; }
   } catch (err) {
     console.warn("Error en API Real (waive), usando datos de respaldo.", err);

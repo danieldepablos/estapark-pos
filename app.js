@@ -1,5 +1,9 @@
 import { notifyPayment, verifyTicket, waiveTicket } from "./apiService.js";
 
+// Scanner instance holder
+let html5QrCode = null;
+let isScannerOpen = false;
+
 const state = {
   ticketCode: "",
   ticketData: null,
@@ -27,6 +31,7 @@ function setBusy(isBusy) {
   elements.ticketInput.disabled = isBusy;
 }
 
+// Clears UI result fields and resets state safely.
 function clearResult() {
   state.ticketData = null;
   elements.resultCode.textContent = "-";
@@ -35,6 +40,94 @@ function clearResult() {
   elements.resultPanel.hidden = true;
   elements.payButton.disabled = true;
   elements.waiveButton.disabled = true;
+}
+
+// New: comprehensive clear for screen/UI. Use this before updating with new data.
+function clearScreen() {
+  try {
+    // Clear input
+    if (elements.ticketInput) elements.ticketInput.value = "";
+
+    // Clear result region
+    clearResult();
+
+    // Clear status
+    showStatus("Listo para consultar un ticket.", "info");
+  } catch (err) {
+    // Defensive: ensure errors here don't bubble up
+    console.warn('clearScreen error', err);
+  }
+}
+
+// Alias for Spanish name as requested
+function limpiarPantalla() {
+  clearScreen();
+}
+
+// Scanner modal control
+function openScanner() {
+  if (isScannerOpen) return;
+  const container = document.getElementById('reader-container');
+  const reader = document.getElementById('reader');
+  if (!container || !reader) return;
+
+  container.style.display = 'flex';
+  container.setAttribute('aria-hidden', 'false');
+  isScannerOpen = true;
+
+  // Ensure Html5Qrcode is available
+  const Html5Qrcode = window.Html5Qrcode;
+  if (!Html5Qrcode) {
+    console.error('Html5Qrcode library not loaded');
+    return;
+  }
+
+  html5QrCode = new Html5Qrcode('reader');
+
+  Html5Qrcode.getCameras().then(cameras => {
+    const cameraId = (cameras && cameras.length) ? cameras[0].id : null;
+    if (!cameraId) {
+      console.error('No camera found');
+      return;
+    }
+
+    const config = { fps: 10, qrbox: { width: 300, height: 200 } };
+
+    html5QrCode.start(cameraId, config,
+      (decodedText, decodedResult) => {
+        // On success: stop, hide modal, fill input and verify
+        html5QrCode.stop().then(() => {
+          closeScanner();
+          elements.ticketInput.value = decodedText;
+          // trigger verification automatically
+          handleVerify();
+        }).catch(err => {
+          console.warn('Error stopping scanner', err);
+          closeScanner();
+        });
+      },
+      (errorMessage) => {
+        // ignore decode errors for now
+      }
+    ).catch(err => {
+      console.error('Unable to start scanner', err);
+    });
+  }).catch(err => {
+    console.error('getCameras failed', err);
+  });
+}
+
+function closeScanner() {
+  const container = document.getElementById('reader-container');
+  if (container) {
+    container.style.display = 'none';
+    container.setAttribute('aria-hidden', 'true');
+  }
+  isScannerOpen = false;
+  if (html5QrCode) {
+    // ensure stopped
+    html5QrCode.stop().catch(()=>{}).finally(()=>{ html5QrCode.clear(); html5QrCode = null; });
+  }
 }
 
 function showStatus(message, type = "info") {
@@ -52,18 +145,37 @@ function formatAmount(amount) {
     return amount || "-";
   }
 
-  return value.toLocaleString("es-PA", {
+  return value.toLocaleString("es-VE", {
     style: "currency",
-    currency: "USD"
+    currency: "VES"
   });
 }
 
 function formatDate(dateValue) {
-  const parsed = new Date(dateValue);
+  if (!dateValue) return "-";
+
+  // Try parsing common formats (ISO or 'YYYY-MM-DD HH:MM:SS')
+  let parsed = new Date(dateValue);
   if (Number.isNaN(parsed.getTime())) {
-    return dateValue || "-";
+    parsed = new Date(String(dateValue).replace(" ", "T"));
+    if (Number.isNaN(parsed.getTime())) {
+      return String(dateValue);
+    }
   }
-  return parsed.toLocaleString("es-PA");
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const day = pad(parsed.getDate());
+  const month = pad(parsed.getMonth() + 1);
+  const year = parsed.getFullYear();
+
+  let hours = parsed.getHours();
+  const minutes = pad(parsed.getMinutes());
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  const hoursStr = pad(hours);
+
+  return `${day}/${month}/${year} ${hoursStr}:${minutes} ${ampm}`;
 }
 
 function updateResult(ticketData) {
@@ -87,14 +199,14 @@ async function handleVerify() {
   const code = elements.ticketInput.value.trim();
   if (!code) {
     showStatus("Ingresa un codigo de ticket.", "error");
-    clearResult();
+    clearScreen();
     return;
   }
 
   state.ticketCode = code;
   setBusy(true);
   showStatus("Verificando ticket...", "info");
-  clearResult();
+  clearScreen();
 
   try {
     const payload = await verifyTicket(code);
@@ -135,7 +247,7 @@ async function handleAction(action) {
     setMessage(payload.message || successMessage, "success", Boolean(payload && payload.isMock));
     elements.ticketInput.value = "";
     state.ticketCode = "";
-    clearResult();
+    clearScreen();
     elements.ticketInput.focus();
   } catch (error) {
     setMessage(error.message || "No se pudo completar la operacion.", "error");
@@ -159,6 +271,14 @@ function registerEvents() {
   });
 }
 
+// Wire camera button and modal close
+function registerScannerEvents() {
+  const camBtn = document.getElementById('camera-button');
+  if (camBtn) camBtn.addEventListener('click', () => { limpiarPantalla(); openScanner(); });
+  const readerClose = document.getElementById('reader-close');
+  if (readerClose) readerClose.addEventListener('click', () => { closeScanner(); });
+}
+
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
@@ -172,9 +292,9 @@ async function registerServiceWorker() {
 }
 
 function init() {
-  clearResult();
-  showStatus("Listo para consultar un ticket.", "info");
+  clearScreen();
   registerEvents();
+  registerScannerEvents();
   registerServiceWorker();
   elements.ticketInput.focus();
 }

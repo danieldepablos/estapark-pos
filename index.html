@@ -26,9 +26,7 @@
       --radius: 24px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -38,182 +36,63 @@
       color: var(--text);
     }
 
-    .shell {
-      width: min(100%, 560px);
-      margin: 0 auto;
-      padding: 20px 16px 32px;
-    }
+    .shell { width: 100%; max-width: 760px; margin: 0 auto; padding: 20px 16px 32px; }
 
-    .hero {
-      background: var(--gradient);
-      color: #fff;
-      border-radius: 28px;
-      padding: 28px 20px 64px;
-      box-shadow: var(--shadow);
-    }
+    .hero { background: var(--gradient); color: #fff; border-radius: 28px; padding: 28px 20px 64px; box-shadow: var(--shadow); }
+    .hero h1 { margin: 0 0 10px; font-size: 1.9rem; line-height: 1.05; }
+    .hero p { margin: 0; color: rgba(255,255,255,0.88); font-size: 0.98rem; line-height: 1.45; }
 
-    .hero h1 {
-      margin: 0 0 10px;
-      font-size: 1.9rem;
-      line-height: 1.05;
-    }
+    .panel { margin-top: -40px; background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); border: 1px solid rgba(114,62,123,0.08); }
 
-    .hero p {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.88);
-      font-size: 0.98rem;
-      line-height: 1.45;
-    }
+    .field-label { display:block; margin-bottom:10px; color:var(--muted); font-size:0.92rem; font-weight:700; }
 
-    .panel {
-      margin-top: -40px;
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 20px;
-      box-shadow: var(--shadow);
-      border: 1px solid rgba(114, 62, 123, 0.08);
-    }
+    .ticket-input { width:100%; min-height:58px; padding:0 16px; border-radius:16px; border:1px solid var(--line); font-size:1.05rem; color:var(--text); background:#fff; outline:none; transition:border-color 0.2s ease, box-shadow 0.2s ease; }
+    .ticket-input:focus { border-color:#8a4b93; box-shadow:0 0 0 4px rgba(114,62,123,0.12); }
 
-    .field-label {
-      display: block;
-      margin-bottom: 10px;
-      color: var(--muted);
-      font-size: 0.92rem;
-      font-weight: 700;
-    }
+    .button-grid { display:grid; gap:12px; margin-top:16px; }
+    .button { min-height:56px; border:0; border-radius:16px; padding:14px 18px; font-size:1rem; font-weight:800; cursor:pointer; color:#fff; background:var(--gradient); transition:transform 0.12s ease, opacity 0.2s ease; }
+    .button.secondary { background:#3d3240; } .button.ghost { background:#b84242; }
+    .button:active { transform: translateY(1px); } .button:disabled { opacity:0.55; cursor:not-allowed; }
 
-    .ticket-input {
-      width: 100%;
-      min-height: 58px;
-      padding: 0 16px;
-      border-radius: 16px;
-      border: 1px solid var(--line);
-      font-size: 1.05rem;
-      color: var(--text);
-      background: #fff;
-      outline: none;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
+    .status-box { margin-top: 18px; padding: 10px 12px; border-radius: 999px; border: 1px solid var(--line); background: #f7f1f7; color: #5c4d61; font-weight:700; line-height:1; display:inline-block; }
+    .status-box.success { background: var(--success-bg); border-color: transparent; color: var(--success-text); }
+    .status-box.error { background: var(--danger-bg); border-color: var(--danger-line); color: var(--danger-text); }
 
-    .ticket-input:focus {
-      border-color: #8a4b93;
-      box-shadow: 0 0 0 4px rgba(114, 62, 123, 0.12);
-    }
+    /* Result panel and improved layout */
+    .result-panel { margin-top: 18px; padding: 14px; border-radius: 16px; background: #fcf9fc; border: 1px solid var(--line); position: relative; border-top: 4px solid transparent; max-width: 720px; margin-left: auto; margin-right: auto; }
+    /* When previous status is success, show thin green top border (compact integration) */
+    .status-box.success + .result-panel { border-top-color: var(--success-text); }
 
-    .button-grid {
-      display: grid;
-      gap: 12px;
-      margin-top: 16px;
-    }
+    .result-grid { display:flex; gap:14px; justify-content:center; align-items:stretch; flex-wrap:wrap; }
 
-    .button {
-      min-height: 56px;
-      border: 0;
-      border-radius: 16px;
-      padding: 14px 18px;
-      font-size: 1rem;
-      font-weight: 800;
-      cursor: pointer;
-      color: #fff;
-      background: var(--gradient);
-      transition: transform 0.12s ease, opacity 0.2s ease;
-    }
+    .result-item { flex: 0 1 220px; min-width:180px; padding: 18px 14px; border-radius:12px; background:#fff; border:1px solid #eee4ed; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+    /* Make ticket card wider to fit long 22-digit codes on one line */
+    .result-item.ticket { flex: 0 1 360px; min-width: 280px; }
 
-    .button.secondary {
-      background: #3d3240;
-    }
+    /* Camera button styling (beside input) */
+    #camera-button { width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; }
 
-    .button.ghost {
-      background: #b84242;
-    }
+    /* Reader modal styles */
+    #reader-container { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:1200; }
+    #reader-overlay { background: rgba(0,0,0,0.55); position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+    #reader-box { position:relative; background:transparent; padding:18px; border-radius:14px; }
+    #reader { width:100%; max-width:350px; height:260px; border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.4); }
+    #reader-close { background: rgba(0,0,0,0.45); border-radius:8px; padding:6px 8px; }
 
-    .button:active {
-      transform: translateY(1px);
-    }
+    .result-item .label { color: var(--muted); font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; text-align:center; margin-bottom:8px; }
 
-    .button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
+    .result-item .value { font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; text-align:center; font-size: clamp(0.9rem, 1.6vw, 1.05rem); line-height:1.1; padding:2px 4px; }
 
-    .status-box {
-      margin-top: 18px;
-      padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid var(--line);
-      background: #f7f1f7;
-      color: #5c4d61;
-      font-weight: 700;
-      line-height: 1.4;
-    }
+    /* Make NUM. TICKET slightly smaller to avoid overflow on long codes */
+    #result-code { font-size: clamp(0.82rem, 1.4vw, 0.98rem); letter-spacing: 0.01em; }
 
-    .status-box.success {
-      background: var(--success-bg);
-      border-color: var(--success-line);
-      color: var(--success-text);
-    }
-
-    .status-box.error {
-      background: var(--danger-bg);
-      border-color: var(--danger-line);
-      color: var(--danger-text);
-    }
-
-    .result-panel {
-      margin-top: 18px;
-      padding: 18px;
-      border-radius: 20px;
-      background: #fcf9fc;
-      border: 1px solid var(--line);
-    }
-
-    .result-panel[hidden] {
-      display: none;
-    }
-
-    .result-grid {
-      display: grid;
-      gap: 12px;
-    }
-
-    .result-item {
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: #fff;
-      border: 1px solid #eee4ed;
-    }
-
-    .result-item span {
-      display: block;
-    }
-
-    .result-item .label {
-      margin-bottom: 4px;
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .result-item .value {
-      font-size: 1rem;
-      font-weight: 800;
-      word-break: break-word;
-    }
+    /* Ensure long ticket numbers don't wrap and scale slightly down when necessary */
+    .result-item.ticket .value { white-space: nowrap; font-size: clamp(0.78rem, 1.2vw, 0.95rem); }
 
     @media (min-width: 640px) {
-      .shell {
-        padding-top: 36px;
-      }
-
-      .button-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .result-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
+      .shell { padding-top:36px; }
+      .button-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .result-grid { flex-wrap:nowrap; }
     }
   </style>
 </head>
@@ -221,24 +100,33 @@
   <main class="shell">
     <section class="hero">
       <h1>EstaPark POS</h1>
-      <p>Cines Unidos - Millenium - Gestión de Tickets.</p>
+      <p>Cines Unidos - Millennium - Gestión de Tickets de Estacionamiento.</p>
       <!-- Consulta, pago y exoneracion de tickets desde una interfaz simple, mobile first e instalable como PWA.-->  
     </section>
 
     <section class="panel">
       <form id="ticket-form">
         <label class="field-label" for="ticket-code">Codigo del ticket</label>
-        <input
-          id="ticket-code"
-          class="ticket-input"
-          type="text"
-          placeholder="Ingresa el codigo"
-          autocomplete="off"
-          autocapitalize="off"
-          autocorrect="off"
-          spellcheck="false"
-          required
-        >
+        <div style="display:flex;gap:10px;align-items:center;">
+          <input
+            id="ticket-code"
+            class="ticket-input"
+            type="text"
+            placeholder="Ingresa el codigo"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            required
+          >
+          <button id="camera-button" type="button" title="Escanear" style="background:#9b2352;border:0;border-radius:12px;padding:10px 12px;display:inline-flex;align-items:center;justify-content:center;">
+            <!-- simple camera SVG icon -->
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M12 8a4 4 0 100 8 4 4 0 000-8z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M21 19a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h3l1-2h6l1 2h3a2 2 0 012 2v12z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
 
         <div class="button-grid">
           <button id="verify-button" class="button" type="submit">Verificar</button>
@@ -251,8 +139,8 @@
 
       <section id="result-panel" class="result-panel" hidden>
         <div class="result-grid">
-          <article class="result-item">
-            <span class="label">Codigo</span>
+          <article class="result-item ticket">
+            <span class="label">NUM. TICKET</span>
             <span id="result-code" class="value">-</span>
           </article>
           <article class="result-item">
@@ -260,7 +148,7 @@
             <span id="result-amount" class="value">-</span>
           </article>
           <article class="result-item">
-            <span class="label">Fecha de ingreso</span>
+            <span class="label">Fecha de Ingreso</span>
             <span id="result-enter-date" class="value">-</span>
           </article>
         </div>
@@ -268,6 +156,19 @@
     </section>
   </main>
 
+  <script src="./js/html5-qrcode.min.js"></script>
   <script type="module" src="./app.js"></script>
+
+  <!-- Camera reader modal -->
+  <div id="reader-container" aria-hidden="true" style="display:none;">
+    <div id="reader-overlay">
+      <div id="reader-box">
+        <button id="reader-close" aria-label="Cerrar" style="position:absolute;right:8px;top:8px;background:transparent;border:0;color:#fff;font-weight:700;">✕</button>
+        <div id="reader" style="width:100%;max-width:350px;border-radius:12px;overflow:hidden;background:#000;">
+          <!-- html5-qrcode will attach here -->
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

@@ -65,56 +65,100 @@ function limpiarPantalla() {
 }
 
 // Scanner modal control
-function openScanner() {
+async function openScanner() {
   if (isScannerOpen) return;
   const container = document.getElementById('reader-container');
   const reader = document.getElementById('reader');
-  if (!container || !reader) return;
+  if (!container || !reader) {
+    console.error('openScanner: faltan elementos #reader-container o #reader');
+    return;
+  }
 
+  console.log('Iniciando escáner...');
+
+  // Mostrar modal antes de iniciar la librería (no debe estar display:none)
   container.style.display = 'flex';
   container.setAttribute('aria-hidden', 'false');
   isScannerOpen = true;
 
-  // Ensure Html5Qrcode is available
+  // esperar un frame para que el layout se pinte
+  await new Promise((r) => setTimeout(r, 200));
+
   const Html5Qrcode = window.Html5Qrcode;
   if (!Html5Qrcode) {
     console.error('Html5Qrcode library not loaded');
+    // ocultar modal
+    container.style.display = 'none';
+    container.setAttribute('aria-hidden', 'true');
+    isScannerOpen = false;
     return;
   }
 
+  // limpiar instancia previa si existe
+  if (html5QrCode) {
+    try { await html5QrCode.stop(); } catch (e) { /* noop */ }
+    try { html5QrCode.clear(); } catch (e) { /* noop */ }
+    html5QrCode = null;
+  }
+
+  // instantiate
   html5QrCode = new Html5Qrcode('reader');
 
-  Html5Qrcode.getCameras().then(cameras => {
-    const cameraId = (cameras && cameras.length) ? cameras[0].id : null;
-    if (!cameraId) {
-      console.error('No camera found');
-      return;
-    }
+  const config = { fps: 10, qrbox: { width: 300, height: 200 } };
 
-    const config = { fps: 10, qrbox: { width: 300, height: 200 } };
-
-    html5QrCode.start(cameraId, config,
-      (decodedText, decodedResult) => {
-        // On success: stop, hide modal, fill input and verify
-        html5QrCode.stop().then(() => {
-          closeScanner();
+  // Try strict environment facing first
+  try {
+    await html5QrCode.start({ facingMode: { exact: 'environment' } }, config,
+      async (decodedText, decodedResult) => {
+        console.log('Código detectado:', decodedText);
+        try { await html5QrCode.stop(); } catch (_) {}
+        try { html5QrCode.clear(); } catch (_) {}
+        html5QrCode = null;
+        closeScanner();
+        if (elements.ticketInput) {
           elements.ticketInput.value = decodedText;
-          // trigger verification automatically
-          handleVerify();
-        }).catch(err => {
-          console.warn('Error stopping scanner', err);
-          closeScanner();
-        });
+        }
+        if (typeof handleVerify === 'function') handleVerify();
       },
       (errorMessage) => {
-        // ignore decode errors for now
+        // non-fatal decode errors
+        console.log('Scan error (info):', errorMessage);
       }
-    ).catch(err => {
-      console.error('Unable to start scanner', err);
-    });
-  }).catch(err => {
-    console.error('getCameras failed', err);
-  });
+    );
+    console.log('Escáner iniciado (facingMode exact).');
+    return;
+  } catch (err) {
+    console.error('Error iniciando con facingMode exact:', err);
+    // fallback: try environment without exact
+  }
+
+  try {
+    // fallback attempt
+    html5QrCode = new Html5Qrcode('reader');
+    await html5QrCode.start({ facingMode: 'environment' }, config,
+      async (decodedText) => {
+        console.log('Código detectado (fallback):', decodedText);
+        try { await html5QrCode.stop(); } catch (_) {}
+        try { html5QrCode.clear(); } catch (_) {}
+        html5QrCode = null;
+        closeScanner();
+        if (elements.ticketInput) elements.ticketInput.value = decodedText;
+        if (typeof handleVerify === 'function') handleVerify();
+      },
+      (errMsg) => console.log('Scan error (fallback):', errMsg)
+    );
+    console.log('Escáner iniciado (facingMode fallback).');
+  } catch (err2) {
+    console.error('No fue posible iniciar la cámara:', err2);
+    // ocultar modal si no se puede iniciar
+    container.style.display = 'none';
+    container.setAttribute('aria-hidden', 'true');
+    isScannerOpen = false;
+    if (html5QrCode) {
+      try { html5QrCode.clear(); } catch (_) {}
+      html5QrCode = null;
+    }
+  }
 }
 
 function closeScanner() {

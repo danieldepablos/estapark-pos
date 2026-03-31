@@ -1,0 +1,25 @@
+{
+  "name": "EstaPark POS",
+  "short_name": "EstaPark",
+  "description": "Verificacion, pago y exoneracion de tickets de estacionamiento",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f3f6",
+  "theme_color": "#723e7b",
+  "icons": [
+    {
+      "src": "./icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

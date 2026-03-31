@@ -1,7 +1,7 @@
 import { notifyPayment, verifyTicket, waiveTicket } from "./apiService.js";
 
 // Scanner instance holder
-let html5QrCode = null;
+let html5QrScanner = null;
 let isScannerOpen = false;
 
 const state = {
@@ -64,99 +64,90 @@ function limpiarPantalla() {
   clearScreen();
 }
 
-// Scanner modal control
+// Scanner modal control using Html5QrcodeScanner
 async function openScanner() {
   if (isScannerOpen) return;
   const container = document.getElementById('reader-container');
   const reader = document.getElementById('reader');
+  const readerLog = document.getElementById('reader-log');
   if (!container || !reader) {
     console.error('openScanner: faltan elementos #reader-container o #reader');
+    if (readerLog) readerLog.textContent = 'Error: elementos del lector no encontrados.';
     return;
   }
 
   console.log('Iniciando escáner...');
+  if (readerLog) readerLog.textContent = 'Iniciando escáner...';
 
-  // Mostrar modal antes de iniciar la librería (no debe estar display:none)
+  // Mostrar modal antes de iniciar la librería (el reader debe ser visible)
   container.style.display = 'flex';
   container.setAttribute('aria-hidden', 'false');
+  // ensure reader is visible
+  reader.style.display = 'block';
   isScannerOpen = true;
 
-  // esperar un frame para que el layout se pinte
-  await new Promise((r) => setTimeout(r, 200));
+  // wait briefly for layout to render
+  await new Promise((r) => setTimeout(r, 250));
 
-  const Html5Qrcode = window.Html5Qrcode;
-  if (!Html5Qrcode) {
-    console.error('Html5Qrcode library not loaded');
-    // ocultar modal
+  const Html5QrcodeScanner = window.Html5QrcodeScanner;
+  if (!Html5QrcodeScanner) {
+    const msg = 'Html5QrcodeScanner library not loaded';
+    console.error(msg);
+    if (readerLog) readerLog.textContent = msg;
     container.style.display = 'none';
     container.setAttribute('aria-hidden', 'true');
     isScannerOpen = false;
     return;
   }
 
-  // limpiar instancia previa si existe
-  if (html5QrCode) {
-    try { await html5QrCode.stop(); } catch (e) { /* noop */ }
-    try { html5QrCode.clear(); } catch (e) { /* noop */ }
-    html5QrCode = null;
+  // If an existing scanner exists, clear it to avoid duplicate UI causing blink
+  if (html5QrScanner) {
+    try {
+      await html5QrScanner.clear();
+    } catch (e) {
+      console.warn('Error clearing existing scanner:', e);
+    }
+    html5QrScanner = null;
   }
 
-  // instantiate
-  html5QrCode = new Html5Qrcode('reader');
-
-  const config = { fps: 10, qrbox: { width: 300, height: 200 } };
-
-  // Try strict environment facing first
   try {
-    await html5QrCode.start({ facingMode: { exact: 'environment' } }, config,
-      async (decodedText, decodedResult) => {
-        console.log('Código detectado:', decodedText);
-        try { await html5QrCode.stop(); } catch (_) {}
-        try { html5QrCode.clear(); } catch (_) {}
-        html5QrCode = null;
+    // Create a new scanner. verbose:false, fps:10, qrbox:250
+    html5QrScanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250, verbose: false }, false);
+
+    // render with callbacks
+    html5QrScanner.render(
+      (decodedText, decodedResult) => {
+        console.log('Código detectado:', decodedText, decodedResult);
+        if (readerLog) readerLog.textContent = `Código detectado: ${decodedText}`;
+        // clear and close
+        html5QrScanner.clear().catch(() => {});
+        html5QrScanner = null;
         closeScanner();
         if (elements.ticketInput) {
           elements.ticketInput.value = decodedText;
+          elements.ticketInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
         if (typeof handleVerify === 'function') handleVerify();
       },
       (errorMessage) => {
         // non-fatal decode errors
         console.log('Scan error (info):', errorMessage);
+        if (readerLog) readerLog.textContent = `Scan: ${errorMessage}`;
       }
     );
-    console.log('Escáner iniciado (facingMode exact).');
-    return;
-  } catch (err) {
-    console.error('Error iniciando con facingMode exact:', err);
-    // fallback: try environment without exact
-  }
 
-  try {
-    // fallback attempt
-    html5QrCode = new Html5Qrcode('reader');
-    await html5QrCode.start({ facingMode: 'environment' }, config,
-      async (decodedText) => {
-        console.log('Código detectado (fallback):', decodedText);
-        try { await html5QrCode.stop(); } catch (_) {}
-        try { html5QrCode.clear(); } catch (_) {}
-        html5QrCode = null;
-        closeScanner();
-        if (elements.ticketInput) elements.ticketInput.value = decodedText;
-        if (typeof handleVerify === 'function') handleVerify();
-      },
-      (errMsg) => console.log('Scan error (fallback):', errMsg)
-    );
-    console.log('Escáner iniciado (facingMode fallback).');
-  } catch (err2) {
-    console.error('No fue posible iniciar la cámara:', err2);
-    // ocultar modal si no se puede iniciar
+    console.log('Escáner renderizado correctamente.');
+    if (readerLog) readerLog.textContent = 'Escáner listo. Apunta al código.';
+  } catch (err) {
+    console.error('Error inicializando Html5QrcodeScanner:', err);
+    if (readerLog) readerLog.textContent = `Error inicializando cámara: ${err && err.message ? err.message : err}`;
+    // hide modal on fatal error
     container.style.display = 'none';
     container.setAttribute('aria-hidden', 'true');
     isScannerOpen = false;
-    if (html5QrCode) {
-      try { html5QrCode.clear(); } catch (_) {}
-      html5QrCode = null;
+    if (html5QrScanner) {
+      try { html5QrScanner.clear(); } catch (_) {}
+      html5QrScanner = null;
     }
   }
 }

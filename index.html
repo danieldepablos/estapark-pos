@@ -76,7 +76,7 @@
     #reader-container { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:1200; }
     #reader-overlay { background: rgba(0,0,0,0.55); position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
     #reader-box { position:relative; background:transparent; padding:18px; border-radius:14px; }
-    #reader { width:100%; max-width:350px; height:260px; border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.4); }
+    #reader { width:100%; max-width:350px; height:260px; border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.4); transition: none !important; animation: none !important; }
     #reader-close { background: rgba(0,0,0,0.45); border-radius:8px; padding:6px 8px; }
 
     .result-item .label { color: var(--muted); font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; text-align:center; margin-bottom:8px; }
@@ -167,6 +167,7 @@
         <div id="reader" style="width:100%;max-width:350px;border-radius:12px;overflow:hidden;background:#000;">
           <!-- html5-qrcode will attach here -->
         </div>
+        <div id="reader-log" style="margin-top:8px;color:#fff;font-size:12px;min-height:20px;text-align:center;">&nbsp;</div>
       </div>
     </div>
   </div>

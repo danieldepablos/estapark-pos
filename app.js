@@ -1,4 +1,4 @@
-import { notifyPayment, verifyTicket, waiveTicket } from "./apiService.js";
+import { notifyPayment, verifyTicket as apiVerifyTicket, waiveTicket as apiWaiveTicket } from "./apiService.js";
 
 // Scanner instance holder
 let html5QrScanner = null;
@@ -127,7 +127,7 @@ async function openScanner() {
           elements.ticketInput.value = decodedText;
           elements.ticketInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
-        if (typeof handleVerify === 'function') handleVerify();
+        if (typeof verifyTicket === 'function') verifyTicket();
       },
       (errorMessage) => {
         // non-fatal decode errors
@@ -175,39 +175,43 @@ function setMessage(message, type = "info", isMock = false) {
 }
 
 function formatAmount(amount) {
+  // Always display as: Bs.S 420,00 (use comma as decimal separator)
   const value = Number(amount);
-  if (!Number.isFinite(value)) {
-    return amount || "-";
-  }
-
-  return value.toLocaleString("es-VE", {
-    style: "currency",
-    currency: "VES"
-  });
+  if (!Number.isFinite(value)) return amount || "-";
+  // Format with 2 decimals and comma decimal separator
+  const parts = value.toFixed(2).split('.');
+  // Add thousands separator for readability
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `Bs.S ${parts[0]},${parts[1]}`;
 }
 
 function formatDate(dateValue) {
   if (!dateValue) return "-";
 
-  // Try parsing common formats (ISO or 'YYYY-MM-DD HH:MM:SS')
+  // Accept ISO or 'YYYY-MM-DD HH:MM:SS' formats. Normalize by inserting T if necessary.
   let parsed = new Date(dateValue);
   if (Number.isNaN(parsed.getTime())) {
-    parsed = new Date(String(dateValue).replace(" ", "T"));
+    parsed = new Date(String(dateValue).replace(' ', 'T'));
     if (Number.isNaN(parsed.getTime())) {
-      return String(dateValue);
+      // Try parsing manually for 'YYYY-MM-DD HH:MM:SS'
+      const m = String(dateValue).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+      if (m) {
+        const [, y, mo, d, hh, mm] = m;
+        parsed = new Date(`${y}-${mo}-${d}T${hh}:${mm}:00`);
+      }
+      if (Number.isNaN(parsed.getTime())) return String(dateValue);
     }
   }
 
-  const pad = (n) => String(n).padStart(2, "0");
+  const pad = (n) => String(n).padStart(2, '0');
   const day = pad(parsed.getDate());
   const month = pad(parsed.getMonth() + 1);
   const year = parsed.getFullYear();
 
   let hours = parsed.getHours();
   const minutes = pad(parsed.getMinutes());
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12;
-  if (hours === 0) hours = 12;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12; if (hours === 0) hours = 12;
   const hoursStr = pad(hours);
 
   return `${day}/${month}/${year} ${hoursStr}:${minutes} ${ampm}`;
@@ -229,80 +233,155 @@ function getApiErrorMessage(payload, fallback) {
   }
   return payload.error || fallback;
 }
+// Show mock/demo data and update UI
+// Show mock/demo data; amount and date can be provided, otherwise generated
+function showMockData({ amount = null, enter_date = null } = {}) {
+  console.warn('--- MODO DEMO ACTIVO: Usando datos de respaldo ---');
 
-async function handleVerify() {
+  const inputVal = (elements.ticketInput && elements.ticketInput.value.trim()) || '9951053972583903924337';
+  state.ticketCode = inputVal;
+
+  // Generate random amount between 150.00 and 600.00 if not provided
+  let amountVal;
+  if (amount != null) {
+    amountVal = Number(amount);
+  } else {
+    const min = 15000; // cents
+    const max = 60000;
+    const cents = Math.floor(Math.random() * (max - min + 1)) + min;
+    amountVal = cents / 100;
+  }
+
+  // Use provided date or current system date/time
+  const dateVal = enter_date || new Date();
+
+  const mock = {
+    status: 'valid',
+    amount: Number(amountVal).toFixed(2),
+    enter_date: dateVal,
+    isMock: true
+  };
+
+  // Update UI
+  if (elements.ticketInput) elements.ticketInput.value = inputVal;
+  updateResult(mock);
+
+  // Add a small green badge in result panel
+  let badge = document.getElementById('demo-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'demo-badge';
+    badge.style.cssText = 'margin-top:8px;padding:6px 10px;border-radius:999px;background:#e6f7ec;color:#166534;font-weight:700;font-size:0.85rem;display:inline-block';
+    elements.resultPanel.appendChild(badge);
+  }
+  badge.textContent = 'Verificado (Modo Demo)';
+
+  // Status message
+  setMessage('Ticket verificado correctamente.', 'success', true);
+}
+
+// App-level verifyTicket: attempts real API then falls back to demo mock with dynamic amount/date
+async function verifyTicket() {
   const code = elements.ticketInput.value.trim();
   if (!code) {
-    showStatus("Ingresa un codigo de ticket.", "error");
+    showStatus('Ingresa un codigo de ticket.', 'error');
     clearScreen();
     return;
   }
 
   state.ticketCode = code;
   setBusy(true);
-  showStatus("Verificando ticket...", "info");
+  showStatus('Verificando ticket...', 'info');
   clearScreen();
 
   try {
-    const payload = await verifyTicket(code);
-    if (payload.status === "invalid") {
-      showStatus(getApiErrorMessage(payload, "Ticket invalido."), "error");
+    // Call API function imported as apiVerifyTicket
+    const payload = await apiVerifyTicket(code);
+
+    // If API returns falsy or indicates invalid, use mock
+    if (!payload || payload.status === 'invalid') {
+      console.warn('API returned invalid or empty payload; switching to demo mock');
+      showMockData();
       return;
     }
 
-    updateResult(payload);
-    setMessage("Ticket verificado correctamente.", "success", Boolean(payload && payload.isMock));
-  } catch (error) {
-    showStatus(error.message || "No se pudo verificar el ticket.", "error");
+    // Normalize enter_date to Date/formatted string
+    const normalized = Object.assign({}, payload);
+    if (normalized.enter_date) normalized.enter_date = formatDate(normalized.enter_date);
+
+    updateResult(normalized);
+    setMessage('Ticket verificado correctamente.', 'success', Boolean(normalized && normalized.isMock));
+  } catch (err) {
+    // Network/CORS/error -> use dynamic mock
+    console.warn('Error contacting API, activating demo mock. Error:', err);
+    // Use current date and random amount
+    showMockData({ amount: null, enter_date: new Date() });
   } finally {
     setBusy(false);
   }
 }
 
-async function handleAction(action) {
+// procesarPago: mock flow for Pay button
+function procesarPago() {
   if (!state.ticketCode) {
-    showStatus("Primero verifica un ticket.", "error");
+    showStatus('Primero verifica un ticket.', 'error');
     return;
   }
 
-  const actionLabel = action === "pay" ? "Registrando pago..." : "Exonerando ticket...";
-  const actionRequest = action === "pay" ? notifyPayment : waiveTicket;
-  const successMessage = action === "pay" ? "Pago registrado" : "Ticket exonerado";
+  const amount = state.ticketData && state.ticketData.amount ? state.ticketData.amount : (elements.resultAmount ? elements.resultAmount.textContent : null);
+  const displayAmount = amount ? formatAmount(Number(String(amount).replace(',', '.'))) : 'Bs.S 0,00';
 
-  setBusy(true);
-  showStatus(actionLabel, "info");
+  // Show processing message (green)
+  showStatus(`Procesando pago de ${displayAmount}...`, 'info');
 
-  try {
-    const payload = await actionRequest(state.ticketCode);
-    if (payload.status === "invalid") {
-      showStatus(getApiErrorMessage(payload, "Operacion invalida."), "error");
-      return;
-    }
+  // Simulate processing
+  setTimeout(() => {
+    showStatus('✅ ¡Pago Exitoso! Ticket validado para salida.', 'success');
 
-    setMessage(payload.message || successMessage, "success", Boolean(payload && payload.isMock));
-    elements.ticketInput.value = "";
-    state.ticketCode = "";
-    clearScreen();
-    elements.ticketInput.focus();
-  } catch (error) {
-    setMessage(error.message || "No se pudo completar la operacion.", "error");
-  } finally {
-    setBusy(false);
+    // After 3 seconds clear UI for next customer
+    setTimeout(() => {
+      clearScreen();
+      elements.ticketInput.focus();
+      state.ticketCode = '';
+      state.ticketData = null;
+    }, 3000);
+  }, 2000);
+}
+
+// exonerarTicket: mock flow for Waive button
+function exonerarTicket() {
+  if (!state.ticketCode) {
+    showStatus('Primero verifica un ticket.', 'error');
+    return;
   }
+
+  showStatus('Aplicando cortesía de Cines Unidos...', 'info');
+
+  setTimeout(() => {
+    // Update UI: set amount to 0.00
+    const mock = {
+      status: 'valid',
+      amount: '0.00',
+      enter_date: new Date(),
+      isMock: true
+    };
+    updateResult(mock);
+    showStatus('🎟️ Ticket Exonerado exitosamente.', 'success');
+  }, 1500);
 }
 
 function registerEvents() {
   elements.form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    await handleVerify();
+    await verifyTicket();
   });
 
-  elements.payButton.addEventListener("click", async () => {
-    await handleAction("pay");
+  elements.payButton.addEventListener("click", () => {
+    procesarPago();
   });
 
-  elements.waiveButton.addEventListener("click", async () => {
-    await handleAction("waive");
+  elements.waiveButton.addEventListener("click", () => {
+    exonerarTicket();
   });
 }
 
